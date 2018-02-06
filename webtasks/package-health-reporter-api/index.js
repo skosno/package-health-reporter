@@ -8,10 +8,15 @@ const GIT_URL_REGEXP = /github\.com\/(.*)\.git/;
 const reportConfig = {
   maintainers: {
     min: 2,
+    type: 'warning',
   },
   license: {
     accepted: ['MIT', 'Apache-2.0', 'BSD-2-Clause', 'BSD-2-Clause-Patent', 'BSD-3-Clause', 'WTFPL'],
     alert: ['UNLICENSED'],
+  },
+  version: {
+    min: 0.2,
+    type: 'warning',
   },
 };
 
@@ -99,12 +104,26 @@ function reportMaintainers(data) {
   const issues = [];
   if (data.noOfMaintainers < reportConfig.maintainers.min) {
     issues.push({
-      type: 'warning',
+      type: reportConfig.maintainers.type,
       message: `There should be at least ${
         reportConfig.maintainers.min
       } maintainers. There are only: data.noOfMaintainers`,
     });
   }
+  return issues;
+}
+
+function reportVersion(data) {
+  const issues = [];
+  const currentVersion = parseFloat(data.version);
+
+  if (currentVersion < reportConfig.version.min) {
+    issues.push({
+      type: reportConfig.version.type,
+      message: `Version should be at least: ${reportConfig.version.min}. Package is: ${data.version}`,
+    });
+  }
+
   return issues;
 }
 
@@ -115,6 +134,7 @@ function createReport(data) {
     report: {
       license: reportLicense(data),
       maintainers: reportMaintainers(data),
+      version: reportVersion(data),
     },
   };
 }
