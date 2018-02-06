@@ -5,6 +5,15 @@ const REPOSITORY_URLS = Object.create(null, {
   git: { value: { type: 'git', url: 'https://api.github.com' } },
 });
 const GIT_URL_REGEXP = /github\.com\/(.*)\.git/;
+const reportConfig = {
+  maintainers: {
+    min: 2,
+  },
+  license: {
+    accepted: ['MIT', 'Apache-2.0', 'BSD-2-Clause', 'BSD-2-Clause-Patent', 'BSD-3-Clause', 'WTFPL'],
+    alert: ['UNLICENSED'],
+  },
+};
 
 function collectNpmData(url, name) {
   return axios
@@ -64,10 +73,49 @@ function extractData(collectedData) {
   return Object.assign({}, npmExtract, gitExtract, conflicts);
 }
 
-function createReport(extractedData) {
+function reportLicense(data) {
+  const issues = [];
+  const licenses = data.license
+    .replace(/\(|\)/g, '')
+    .split('OR')
+    .map(license => license.replace(/ /g, ''));
+
+  if (licenses.length === 1 && reportConfig.license.alert.indexOf(licenses[0]) > -1) {
+    issues.push({
+      type: 'alert',
+      message: `Single provided license is unacceptable: ${licenses[0]}`,
+    });
+  } else if (!reportConfig.license.accepted.some(license => licenses.indexOf(license) > -1)) {
+    issues.push({
+      type: 'warning',
+      message: `Provided license(s) should be reviewed if acceptable: ${data.license}`,
+    });
+  }
+
+  return issues;
+}
+
+function reportMaintainers(data) {
+  const issues = [];
+  if (data.noOfMaintainers < reportConfig.maintainers.min) {
+    issues.push({
+      type: 'warning',
+      message: `There should be at least ${
+        reportConfig.maintainers.min
+      } maintainers. There are only: data.noOfMaintainers`,
+    });
+  }
+  return issues;
+}
+
+function createReport(data) {
   return {
     status: 'ok',
-    extractedData,
+    extractedData: data,
+    report: {
+      license: reportLicense(data),
+      maintainers: reportMaintainers(data),
+    },
   };
 }
 
