@@ -1,4 +1,5 @@
 const axios = require('axios@0.17.1');
+const moment = require('moment@2.11.2');
 
 const REPOSITORY_URLS = Object.create(null, {
   npm: { value: { type: 'npm', url: 'https://registry.npmjs.org' } },
@@ -31,7 +32,24 @@ const reportConfig = {
     minWatchers: 3,
     type: 'warning',
   },
+  issues: {
+    open: {
+      max: 100,
+      type: 'warning',
+    },
+  },
+  activity: {
+    minRelease: {
+      value: 60,
+      format: 'days',
+      type: 'warning',
+    },
+  },
 };
+
+/**
+ * COLLECT DATA
+ */
 
 function collectNpmData(url, name) {
   return axios
@@ -50,6 +68,10 @@ function collectGitData(url, name) {
   }));
 }
 
+/**
+ * EXTRACT DATA
+ */
+
 function extractFromNpm(npmData) {
   if (!npmData) {
     return {};
@@ -60,7 +82,7 @@ function extractFromNpm(npmData) {
     license: npmData.license,
     version: npmData['dist-tags'].latest,
     noOfMaintainers: npmData.maintainers.length,
-    lastReleaseTime: npmData.time.modified,
+    lastReleaseTime: npmData.time[npmData['dist-tags'].latest],
   };
 }
 
@@ -92,6 +114,26 @@ function extractData(collectedData) {
   return Object.assign({}, npmExtract, gitExtract, conflicts);
 }
 
+/**
+ * REPORTERS
+ */
+
+function reportActivity(data) {
+  const issues = [];
+  const diff = moment().diff(data.lastReleaseTime, reportConfig.activity.minRelease.format);
+
+  if (diff > reportConfig.activity.minRelease.value) {
+    issues.push({
+      type: reportConfig.activity.minRelease.type,
+      message: `Package hasn't been updated recenty. Latest release was done: ${moment(
+        data.lastReleaseTime
+      ).fromNow()}`,
+    });
+  }
+
+  return issues;
+}
+
 function reportInterest(data) {
   const issues = [];
 
@@ -106,6 +148,23 @@ function reportInterest(data) {
       } (min. ${reportConfig.interest.minForks}), watchers: ${data.watchersCount} (min. ${
         reportConfig.interest.minWatchers
       })`,
+    });
+  }
+
+  return issues;
+}
+
+function reportRepoIssues(data) {
+  const issues = [];
+
+  if (data.openIssuesCount > reportConfig.issues.open.max) {
+    issues.push({
+      type: reportConfig.issues.open.type,
+      message: `There seems to be a lot of issues open for the package: ${
+        data.openIssuesCount
+      } (max. ${
+        reportConfig.issues.open.max
+      }). Make sure that the package is in good shape before using it (issues count will be higher in large packages).`,
     });
   }
 
@@ -136,6 +195,7 @@ function reportLicense(data) {
 
 function reportMaintainers(data) {
   const issues = [];
+
   if (data.noOfMaintainers < reportConfig.maintainers.min) {
     issues.push({
       type: reportConfig.maintainers.type,
@@ -146,6 +206,7 @@ function reportMaintainers(data) {
       } at the moment`,
     });
   }
+
   return issues;
 }
 
@@ -200,15 +261,21 @@ function createReport(data) {
     status: 'ok',
     extractedData: data,
     report: {
+      activity: reportActivity(data),
       interest: reportInterest(data),
       license: reportLicense(data),
       maintainers: reportMaintainers(data),
       size: reportSize(data),
       stars: reportStars(data),
       version: reportVersion(data),
+      repoIssues: reportRepoIssues(data),
     },
   };
 }
+
+/**
+ * MAIN
+ */
 
 module.exports = function(ctx, cb) {
   const typeRaw = ctx.data.type;
