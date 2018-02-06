@@ -18,13 +18,56 @@ function collectNpmData(url, name) {
 }
 
 function collectGitData(url, name) {
-  return axios.get(`${url}/repos/${name}`).then(reposResponse => reposResponse.data);
+  return axios.get(`${url}/repos/${name}`).then(reposResponse => ({
+    repos: reposResponse.data,
+  }));
 }
 
-function createReport(collectedData) {
+function extractFromNpm(npmData) {
+  if (!npmData) {
+    return {};
+  }
+
+  return {
+    license: npmData.license,
+    version: npmData['dist-tags'].latest,
+    noOfMaintainers: npmData.maintainers.length,
+    lastReleaseTime: npmData.time.modified,
+  };
+}
+
+function extractFromGit(gitData) {
+  if (!gitData) {
+    return {};
+  }
+
+  const repos = gitData.repos || {};
+
+  return {
+    license: repos.license,
+    openIssuesCount: repos.open_issues_count,
+    size: repos.size,
+    watchersCount: repos.watchers_count,
+    starsCount: repos.stargazers_count,
+    forksCount: repos.forks_count,
+    subscribersCount: repos.subscribers_count,
+  };
+}
+
+function extractData(collectedData) {
+  const npmExtract = extractFromNpm(collectedData.npm);
+  const gitExtract = extractFromGit(collectedData.git);
+  const conflicts = {
+    license: npmExtract.license || gitExtract || null,
+  };
+
+  return Object.assign({}, npmExtract, gitExtract, conflicts);
+}
+
+function createReport(extractedData) {
   return {
     status: 'ok',
-    collectedData,
+    extractedData,
   };
 }
 
@@ -52,6 +95,7 @@ module.exports = function(ctx, cb) {
         npm: npmData,
       };
     })
+    .then(extractData)
     .then(createReport)
     .then(report => {
       cb(null, report);
