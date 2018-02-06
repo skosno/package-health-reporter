@@ -40,7 +40,7 @@ const reportConfig = {
   },
   activity: {
     minRelease: {
-      value: 60,
+      value: 90,
       format: 'days',
       type: 'warning',
     },
