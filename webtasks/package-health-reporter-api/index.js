@@ -14,8 +14,21 @@ const reportConfig = {
     accepted: ['MIT', 'Apache-2.0', 'BSD-2-Clause', 'BSD-2-Clause-Patent', 'BSD-3-Clause', 'WTFPL'],
     alert: ['UNLICENSED'],
   },
+  size: {
+    min: 38,
+    type: 'warning',
+  },
   version: {
     min: 0.2,
+    type: 'warning',
+  },
+  stars: {
+    min: 100,
+    type: 'info',
+  },
+  interest: {
+    minForks: 5,
+    minWatchers: 3,
     type: 'warning',
   },
 };
@@ -43,6 +56,7 @@ function extractFromNpm(npmData) {
   }
 
   return {
+    name: npmData.name,
     license: npmData.license,
     version: npmData['dist-tags'].latest,
     noOfMaintainers: npmData.maintainers.length,
@@ -78,6 +92,26 @@ function extractData(collectedData) {
   return Object.assign({}, npmExtract, gitExtract, conflicts);
 }
 
+function reportInterest(data) {
+  const issues = [];
+
+  if (
+    data.forksCount < reportConfig.interest.minForks ||
+    data.watchersCount < reportConfig.interest.minWatchers
+  ) {
+    issues.push({
+      type: reportConfig.interest.type,
+      message: `It seems that project does not meet minimal interest criteria: forks: ${
+        data.forksCount
+      } (min. ${reportConfig.interest.minForks}), watchers: ${data.watchersCount} (min. ${
+        reportConfig.interest.minWatchers
+      })`,
+    });
+  }
+
+  return issues;
+}
+
 function reportLicense(data) {
   const issues = [];
   const licenses = data.license
@@ -107,9 +141,41 @@ function reportMaintainers(data) {
       type: reportConfig.maintainers.type,
       message: `There should be at least ${
         reportConfig.maintainers.min
-      } maintainers. There are only: data.noOfMaintainers`,
+      } maintainers to make sure that package is actively maintained. There are only: ${
+        data.noOfMaintainers
+      } at the moment`,
     });
   }
+  return issues;
+}
+
+function reportSize(data) {
+  const issues = [];
+
+  if (data.size < reportConfig.size.min) {
+    issues.push({
+      type: reportConfig.size.type,
+      message: `It seems that the package is pretty small, verify if you really want to use such small package. Package is: ${
+        data.size
+      } (min is: ${reportConfig.size.min}`,
+    });
+  }
+
+  return issues;
+}
+
+function reportStars(data) {
+  const issues = [];
+
+  if (data.starsCount < reportConfig.stars.min) {
+    issues.push({
+      type: reportConfig.stars.type,
+      message: `Number of stars for project is: ${data.starsCount} (min is set to: ${
+        reportConfig.stars.min
+      })`,
+    });
+  }
+
   return issues;
 }
 
@@ -120,7 +186,9 @@ function reportVersion(data) {
   if (currentVersion < reportConfig.version.min) {
     issues.push({
       type: reportConfig.version.type,
-      message: `Version should be at least: ${reportConfig.version.min}. Package is: ${data.version}`,
+      message: `Version should be at least: ${reportConfig.version.min}. Package is: ${
+        data.version
+      }`,
     });
   }
 
@@ -132,8 +200,11 @@ function createReport(data) {
     status: 'ok',
     extractedData: data,
     report: {
+      interest: reportInterest(data),
       license: reportLicense(data),
       maintainers: reportMaintainers(data),
+      size: reportSize(data),
+      stars: reportStars(data),
       version: reportVersion(data),
     },
   };
