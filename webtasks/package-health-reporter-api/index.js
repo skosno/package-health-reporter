@@ -33,9 +33,20 @@ const reportConfig = {
     type: 'warning',
   },
   issues: {
+    sizes: [250, 72000],
     open: {
-      max: 100,
-      type: 'warning',
+      small: {
+        max: 20,
+        type: 'warning',
+      },
+      medium: {
+        max: 120,
+        type: 'warning',
+      },
+      big: {
+        max: 380,
+        type: 'warning',
+      },
     },
   },
   activity: {
@@ -52,8 +63,10 @@ const reportConfig = {
  */
 
 function collectNpmData(url, name) {
+  const parsedName = name[0] === '@' ? name.replace('/', '%2f') : name;
+
   return axios
-    .get(`${url}/${name}`)
+    .get(`${url}/${parsedName}`)
     .then(npmResponse => {
       return npmResponse.data;
     })
@@ -159,14 +172,23 @@ function reportInterest(data) {
 function reportRepoIssues(data) {
   const issues = [];
 
-  if (data.openIssuesCount > reportConfig.issues.open.max) {
+  const getProjectSize = size => {
+    return (
+      (size > reportConfig.issues.sizes[1] && 'big') ||
+      (size > reportConfig.issues.sizes[0] && 'medium') ||
+      'small'
+    );
+  };
+  const size = getProjectSize(data.size);
+
+  if (data.openIssuesCount > reportConfig.issues.open[size].max) {
     issues.push({
       category: 'repoIssues',
-      type: reportConfig.issues.open.type,
+      type: reportConfig.issues.open[size].type,
       message: `There seems to be a lot of issues open for the package: ${
         data.openIssuesCount
       } (max. ${
-        reportConfig.issues.open.max
+        reportConfig.issues.open[size].max
       }). Make sure that the package is in good shape before using it (issues count will be higher in large packages).`,
     });
   }
