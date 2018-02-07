@@ -55,8 +55,37 @@ const reportConfig = {
       format: 'days',
       type: 'warning',
     },
+    period: {
+      small: {
+        weeks: 12,
+        min: 2,
+        type: 'warning',
+      },
+      medium: {
+        weeks: 12,
+        min: 50,
+        type: 'warning',
+      },
+      big: {
+        weeks: 12,
+        min: 100,
+        type: 'warning',
+      },
+    },
   },
 };
+
+/**
+ * GENERAL HELPERS
+ */
+
+function getProjectSize(size) {
+  return (
+    (size > reportConfig.issues.sizes[1] && 'big') ||
+    (size > reportConfig.issues.sizes[0] && 'medium') ||
+    'small'
+  );
+}
 
 /**
  * COLLECT DATA
@@ -76,8 +105,12 @@ function collectNpmData(url, name) {
 }
 
 function collectGitData(url, name) {
-  return axios.get(`${url}/repos/${name}`).then(reposResponse => ({
-    repos: reposResponse.data,
+  return Promise.all([
+    axios.get(`${url}/repos/${name}`),
+    axios.get(`${url}/repos/${name}/stats/commit_activity`),
+  ]).then(allData => ({
+    repos: allData[0].data,
+    commitActivity: allData[1].data,
   }));
 }
 
@@ -105,6 +138,7 @@ function extractFromGit(gitData) {
   }
 
   const repos = gitData.repos || {};
+  const commitActivity = gitData.commitActivity || [];
 
   return {
     license: repos.license,
@@ -114,6 +148,7 @@ function extractFromGit(gitData) {
     starsCount: repos.stargazers_count,
     forksCount: repos.forks_count,
     subscribersCount: repos.subscribers_count,
+    commitActivity: commitActivity.map(activity => activity.total),
   };
 }
 
@@ -133,16 +168,38 @@ function extractData(collectedData) {
 
 function reportActivity(data) {
   const issues = [];
-  const diff = moment().diff(data.lastReleaseTime, reportConfig.activity.minRelease.format);
 
-  if (diff > reportConfig.activity.minRelease.value) {
-    issues.push({
-      category: 'activity',
-      type: reportConfig.activity.minRelease.type,
-      message: `Package hasn't been updated recenty. Latest release was done: ${moment(
-        data.lastReleaseTime
-      ).fromNow()}`,
-    });
+  if (data.lastReleaseTime) {
+    const diff = moment().diff(data.lastReleaseTime, reportConfig.activity.minRelease.format);
+
+    if (data.lastReleaseTime && diff > reportConfig.activity.minRelease.value) {
+      issues.push({
+        category: 'activity',
+        type: reportConfig.activity.minRelease.type,
+        message: `Package hasn't been updated recenty. Latest release was done: ${moment(
+          data.lastReleaseTime
+        ).fromNow()}`,
+      });
+    }
+  }
+
+  if (data.commitActivity) {
+    const size = getProjectSize(data.size);
+    const activityInPeriod = data.commitActivity
+      .slice(0, reportConfig.activity.period[size].weeks - 1)
+      .reduce((sum, activity) => sum + activity, 0);
+
+    if (activityInPeriod < reportConfig.activity.period[size].min) {
+      issues.push({
+        category: 'activity',
+        type: reportConfig.activity.period[size].type,
+        message: `Development on package does not seem to be active. Over past ${
+          reportConfig.activity.period[size].weeks
+        } weeks there have been ${activityInPeriod} commits (min. ${
+          reportConfig.activity.period[size].min
+        })`,
+      });
+    }
   }
 
   return issues;
@@ -150,6 +207,10 @@ function reportActivity(data) {
 
 function reportInterest(data) {
   const issues = [];
+
+  if (data.forksCount === undefined || data.watchersCount === undefined) {
+    return issues;
+  }
 
   if (
     data.forksCount < reportConfig.interest.minForks ||
@@ -172,13 +233,10 @@ function reportInterest(data) {
 function reportRepoIssues(data) {
   const issues = [];
 
-  const getProjectSize = size => {
-    return (
-      (size > reportConfig.issues.sizes[1] && 'big') ||
-      (size > reportConfig.issues.sizes[0] && 'medium') ||
-      'small'
-    );
-  };
+  if (data.size === undefined) {
+    return issues;
+  }
+
   const size = getProjectSize(data.size);
 
   if (data.openIssuesCount > reportConfig.issues.open[size].max) {
@@ -198,6 +256,11 @@ function reportRepoIssues(data) {
 
 function reportLicense(data) {
   const issues = [];
+
+  if (data.license === undefined) {
+    return issues;
+  }
+
   const licenses = data.license
     .replace(/\(|\)/g, '')
     .split('OR')
@@ -223,6 +286,10 @@ function reportLicense(data) {
 function reportMaintainers(data) {
   const issues = [];
 
+  if (data.noOfMaintainers === undefined) {
+    return issues;
+  }
+
   if (data.noOfMaintainers < reportConfig.maintainers.min) {
     issues.push({
       category: 'maintainers',
@@ -241,6 +308,10 @@ function reportMaintainers(data) {
 function reportSize(data) {
   const issues = [];
 
+  if (data.size === undefined) {
+    return issues;
+  }
+
   if (data.size < reportConfig.size.min) {
     issues.push({
       category: 'size',
@@ -257,6 +328,10 @@ function reportSize(data) {
 function reportStars(data) {
   const issues = [];
 
+  if (data.starsCount === undefined) {
+    return issues;
+  }
+
   if (data.starsCount < reportConfig.stars.min) {
     issues.push({
       category: 'stars',
@@ -272,6 +347,11 @@ function reportStars(data) {
 
 function reportVersion(data) {
   const issues = [];
+
+  if (data.version === undefined) {
+    return issues;
+  }
+
   const currentVersion = parseFloat(data.version);
 
   if (currentVersion < reportConfig.version.min) {
@@ -319,9 +399,9 @@ module.exports = function(ctx, cb) {
 
   collectNpmData(repository.url, rawName)
     .then(npmData => {
-      const repository = npmData.repository;
-      if (repository.type === 'git') {
-        const gitName = repository.url.match(GIT_URL_REGEXP)[1];
+      const codeRepository = npmData.repository;
+      if (codeRepository && codeRepository.type === 'git') {
+        const gitName = codeRepository.url.match(GIT_URL_REGEXP)[1];
         return collectGitData(REPOSITORY_URLS['git'].url, gitName).then(gitData => ({
           npm: npmData,
           git: gitData,
