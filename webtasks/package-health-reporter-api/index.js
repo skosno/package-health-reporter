@@ -68,7 +68,7 @@ const reportConfig = {
       },
       big: {
         weeks: 12,
-        min: 100,
+        min: 85,
         type: 'warning',
       },
     },
@@ -193,7 +193,7 @@ function reportActivity(data) {
       issues.push({
         category: 'activity',
         type: reportConfig.activity.period[size].type,
-        message: `Development on package does not seem to be active. Over past ${
+        message: `Development on the package does not seem to be very active. Over past ${
           reportConfig.activity.period[size].weeks
         } weeks there have been ${activityInPeriod} commits (min. ${
           reportConfig.activity.period[size].min
