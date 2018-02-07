@@ -124,6 +124,7 @@ function reportActivity(data) {
 
   if (diff > reportConfig.activity.minRelease.value) {
     issues.push({
+      category: 'activity',
       type: reportConfig.activity.minRelease.type,
       message: `Package hasn't been updated recenty. Latest release was done: ${moment(
         data.lastReleaseTime
@@ -142,6 +143,7 @@ function reportInterest(data) {
     data.watchersCount < reportConfig.interest.minWatchers
   ) {
     issues.push({
+      category: 'interest',
       type: reportConfig.interest.type,
       message: `It seems that project does not meet minimal interest criteria: forks: ${
         data.forksCount
@@ -159,6 +161,7 @@ function reportRepoIssues(data) {
 
   if (data.openIssuesCount > reportConfig.issues.open.max) {
     issues.push({
+      category: 'repoIssues',
       type: reportConfig.issues.open.type,
       message: `There seems to be a lot of issues open for the package: ${
         data.openIssuesCount
@@ -180,11 +183,13 @@ function reportLicense(data) {
 
   if (licenses.length === 1 && reportConfig.license.alert.indexOf(licenses[0]) > -1) {
     issues.push({
+      category: 'license',
       type: 'alert',
       message: `Single provided license is unacceptable: ${licenses[0]}`,
     });
   } else if (!reportConfig.license.accepted.some(license => licenses.indexOf(license) > -1)) {
     issues.push({
+      category: 'license',
       type: 'warning',
       message: `Provided license(s) should be reviewed if acceptable: ${data.license}`,
     });
@@ -198,6 +203,7 @@ function reportMaintainers(data) {
 
   if (data.noOfMaintainers < reportConfig.maintainers.min) {
     issues.push({
+      category: 'maintainers',
       type: reportConfig.maintainers.type,
       message: `There should be at least ${
         reportConfig.maintainers.min
@@ -215,10 +221,11 @@ function reportSize(data) {
 
   if (data.size < reportConfig.size.min) {
     issues.push({
+      category: 'size',
       type: reportConfig.size.type,
       message: `It seems that the package is pretty small, verify if you really want to use such small package. Package is: ${
         data.size
-      } (min is: ${reportConfig.size.min}`,
+      } (min. is: ${reportConfig.size.min}`,
     });
   }
 
@@ -230,8 +237,9 @@ function reportStars(data) {
 
   if (data.starsCount < reportConfig.stars.min) {
     issues.push({
+      category: 'stars',
       type: reportConfig.stars.type,
-      message: `Number of stars for project is: ${data.starsCount} (min is set to: ${
+      message: `Number of stars for project is: ${data.starsCount} (min. is set to: ${
         reportConfig.stars.min
       })`,
     });
@@ -246,6 +254,7 @@ function reportVersion(data) {
 
   if (currentVersion < reportConfig.version.min) {
     issues.push({
+      category: 'version',
       type: reportConfig.version.type,
       message: `Version should be at least: ${reportConfig.version.min}. Package is: ${
         data.version
@@ -260,16 +269,16 @@ function createReport(data) {
   return {
     status: 'ok',
     extractedData: data,
-    report: {
-      activity: reportActivity(data),
-      interest: reportInterest(data),
-      license: reportLicense(data),
-      maintainers: reportMaintainers(data),
-      size: reportSize(data),
-      stars: reportStars(data),
-      version: reportVersion(data),
-      repoIssues: reportRepoIssues(data),
-    },
+    report: [].concat(
+      reportActivity(data),
+      reportInterest(data),
+      reportLicense(data),
+      reportMaintainers(data),
+      reportSize(data),
+      reportStars(data),
+      reportVersion(data),
+      reportRepoIssues(data)
+    ),
   };
 }
 
