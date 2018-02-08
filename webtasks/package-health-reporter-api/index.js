@@ -138,7 +138,7 @@ function extractFromGit(gitData) {
   }
 
   const repos = gitData.repos || {};
-  const commitActivity = gitData.commitActivity || [];
+  const commitActivity = (Array.isArray(gitData.commitActivity) && gitData.commitActivity) || [];
 
   return {
     license: repos.license,
