@@ -249,7 +249,7 @@ function reportInterest(data) {
 function reportRepoIssues(data) {
   const issues = [];
 
-  if (typeof data.size === 'number') {
+  if (typeof data.size !== 'number' || typeof data.openIssuesCount !== 'number') {
     return issues;
   }
 
@@ -302,7 +302,7 @@ function reportLicense(data) {
 function reportMaintainers(data) {
   const issues = [];
 
-  if (typeof data.noOfMaintainers === 'number') {
+  if (typeof data.noOfMaintainers !== 'number') {
     return issues;
   }
 
@@ -324,7 +324,7 @@ function reportMaintainers(data) {
 function reportSize(data) {
   const issues = [];
 
-  if (typeof data.size === 'number') {
+  if (typeof data.size !== 'number') {
     return issues;
   }
 
@@ -344,7 +344,7 @@ function reportSize(data) {
 function reportStars(data) {
   const issues = [];
 
-  if (typeof data.starsCount === 'number') {
+  if (typeof data.starsCount !== 'number') {
     return issues;
   }
 
