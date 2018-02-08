@@ -177,7 +177,7 @@ function extractData(collectedData) {
 function reportActivity(data) {
   const issues = [];
 
-  if (data.lastReleaseTime) {
+  if (data.lastReleaseTime && typeof data.lastReleaseTime === 'string') {
     const diff = moment().diff(data.lastReleaseTime, reportConfig.activity.minRelease.format);
 
     if (data.lastReleaseTime && diff > reportConfig.activity.minRelease.value) {
@@ -224,7 +224,7 @@ function reportActivity(data) {
 function reportInterest(data) {
   const issues = [];
 
-  if (data.forksCount === undefined || data.watchersCount === undefined) {
+  if (typeof data.forksCount === 'number' || typeof data.watchersCount === 'number' ) {
     return issues;
   }
 
@@ -249,7 +249,7 @@ function reportInterest(data) {
 function reportRepoIssues(data) {
   const issues = [];
 
-  if (data.size === undefined) {
+  if (typeof data.size === 'number') {
     return issues;
   }
 
@@ -273,7 +273,7 @@ function reportRepoIssues(data) {
 function reportLicense(data) {
   const issues = [];
 
-  if (data.license === undefined) {
+  if (typeof data.license !== 'string') {
     return issues;
   }
 
@@ -302,7 +302,7 @@ function reportLicense(data) {
 function reportMaintainers(data) {
   const issues = [];
 
-  if (data.noOfMaintainers === undefined) {
+  if (typeof data.noOfMaintainers === 'number') {
     return issues;
   }
 
@@ -324,7 +324,7 @@ function reportMaintainers(data) {
 function reportSize(data) {
   const issues = [];
 
-  if (data.size === undefined) {
+  if (typeof data.size === 'number') {
     return issues;
   }
 
@@ -344,7 +344,7 @@ function reportSize(data) {
 function reportStars(data) {
   const issues = [];
 
-  if (data.starsCount === undefined) {
+  if (typeof data.starsCount === 'number') {
     return issues;
   }
 
