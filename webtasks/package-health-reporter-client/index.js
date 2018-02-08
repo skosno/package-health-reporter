@@ -1,3 +1,5 @@
+'use strict';
+
 const axios = require('axios@0.17.1');
 const handlebars = require('handlebars');
 
@@ -100,17 +102,23 @@ module.exports = function(ctx, req, res) {
         template({
           packageName,
           report: response.data.report,
-          empty: !response.data.report.length
+          empty: !response.data.report.length,
         })
       );
     })
-    .catch(() => {
+    .catch(err => {
+      const name = err.response.data.name;
+      const message = err.response.data.message;
+      let error = `There was an unknown error when generating report: ${message}`;
+      if (name === 'RepositoryNotFoundError') {
+        error = message;
+      }
       res.writeHead(200, { 'Content-Type': 'text/html' });
       res.end(
         template({
           packageName,
           report: null,
-          error: 'Repository not found',
+          error,
         })
       );
     });

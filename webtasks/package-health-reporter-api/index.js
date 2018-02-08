@@ -56,6 +56,7 @@ const reportConfig = {
       type: 'warning',
     },
     period: {
+      type: 'warning',
       small: {
         weeks: 12,
         min: 2,
@@ -93,14 +94,21 @@ function getProjectSize(size) {
 
 function collectNpmData(url, name) {
   const parsedName = name[0] === '@' ? name.replace('/', '%2f') : name;
+  function RepositoryNotFoundError(message) {
+    this.name = 'RepositoryNotFoundError';
+    this.message = message;
+  }
+  RepositoryNotFoundError.prototype = new Error();
 
   return axios
     .get(`${url}/${parsedName}`)
     .then(npmResponse => {
       return npmResponse.data;
     })
-    .catch(() => {
-      throw new Error(`Repository not found: [npm]${name}`);
+    .catch(err => {
+      if (err && err.response && err.response.status === 404) {
+        throw new RepositoryNotFoundError(`Repository not found: [npm]${name}`);
+      } else throw err;
     });
 }
 
@@ -183,7 +191,7 @@ function reportActivity(data) {
     }
   }
 
-  if (data.commitActivity) {
+  if (data.commitActivity && data.commitActivity.length) {
     const size = getProjectSize(data.size);
     const activityInPeriod = data.commitActivity
       .slice(0, reportConfig.activity.period[size].weeks - 1)
@@ -200,6 +208,14 @@ function reportActivity(data) {
         })`,
       });
     }
+  } else {
+    issues.push({
+      category: 'activity',
+      type: reportConfig.activity.period.type,
+      message:
+        'There is no commit activity data available. ' +
+        'It is highly probable that it is still being calculated - retry in couple of seconds.',
+    });
   }
 
   return issues;
