@@ -1,0 +1,14 @@
+{
+  "name": "package-health-reporter-api",
+  "version": "1.0.0",
+  "description": "API webtask for package-health-reporter",
+  "main": "./src/index.js",
+  "repository": "https://github.com/skosno/package-health-reporter.git",
+  "author": "Szymon Kosno <skosno@gmail.com>",
+  "license": "MIT",
+  "private": false,
+  "dependencies": {
+    "axios": "0.17.1",
+    "moment": "2.11.2"
+  }
+}

@@ -1,80 +1,5 @@
-const axios = require('axios@0.17.1');
-const moment = require('moment@2.11.2');
-
-const REPOSITORY_URLS = Object.create(null, {
-  npm: { value: { type: 'npm', url: 'https://registry.npmjs.org' } },
-  git: { value: { type: 'git', url: 'https://api.github.com' } },
-});
-const GIT_URL_REGEXP = /github\.com\/(.*)\.git/;
-const reportConfig = {
-  maintainers: {
-    min: 2,
-    type: 'warning',
-  },
-  license: {
-    accepted: ['MIT', 'Apache-2.0', 'BSD-2-Clause', 'BSD-2-Clause-Patent', 'BSD-3-Clause', 'WTFPL'],
-    alert: ['UNLICENSED'],
-  },
-  size: {
-    min: 38,
-    type: 'warning',
-  },
-  version: {
-    min: 0.2,
-    type: 'warning',
-  },
-  stars: {
-    min: 100,
-    type: 'info',
-  },
-  interest: {
-    minForks: 5,
-    minWatchers: 3,
-    type: 'warning',
-  },
-  issues: {
-    sizes: [250, 72000],
-    open: {
-      small: {
-        max: 20,
-        type: 'warning',
-      },
-      medium: {
-        max: 120,
-        type: 'warning',
-      },
-      big: {
-        max: 380,
-        type: 'warning',
-      },
-    },
-  },
-  activity: {
-    minRelease: {
-      value: 90,
-      format: 'days',
-      type: 'warning',
-    },
-    period: {
-      type: 'warning',
-      small: {
-        weeks: 12,
-        min: 2,
-        type: 'warning',
-      },
-      medium: {
-        weeks: 12,
-        min: 50,
-        type: 'warning',
-      },
-      big: {
-        weeks: 12,
-        min: 85,
-        type: 'warning',
-      },
-    },
-  },
-};
+const moment = require('moment');
+const reportConfig = require('./config').reportConfig;
 
 /**
  * GENERAL HELPERS
@@ -89,89 +14,7 @@ function getProjectSize(size) {
 }
 
 /**
- * COLLECT DATA
- */
-
-function collectNpmData(url, name) {
-  const parsedName = name[0] === '@' ? name.replace('/', '%2f') : name;
-  function RepositoryNotFoundError(message) {
-    this.name = 'RepositoryNotFoundError';
-    this.message = message;
-  }
-  RepositoryNotFoundError.prototype = new Error();
-
-  return axios
-    .get(`${url}/${parsedName}`)
-    .then(npmResponse => {
-      return npmResponse.data;
-    })
-    .catch(err => {
-      if (err && err.response && err.response.status === 404) {
-        throw new RepositoryNotFoundError(`Repository not found: [npm]${name}`);
-      } else throw err;
-    });
-}
-
-function collectGitData(url, name) {
-  return Promise.all([
-    axios.get(`${url}/repos/${name}`),
-    axios.get(`${url}/repos/${name}/stats/commit_activity`),
-  ]).then(allData => ({
-    repos: allData[0].data,
-    commitActivity: allData[1].data,
-  }));
-}
-
-/**
- * EXTRACT DATA
- */
-
-function extractFromNpm(npmData) {
-  if (!npmData) {
-    return {};
-  }
-
-  return {
-    name: npmData.name,
-    license: npmData.license,
-    version: npmData['dist-tags'].latest,
-    noOfMaintainers: npmData.maintainers.length,
-    lastReleaseTime: npmData.time[npmData['dist-tags'].latest],
-  };
-}
-
-function extractFromGit(gitData) {
-  if (!gitData) {
-    return {};
-  }
-
-  const repos = gitData.repos || {};
-  const commitActivity = (Array.isArray(gitData.commitActivity) && gitData.commitActivity) || [];
-
-  return {
-    license: repos.license,
-    openIssuesCount: repos.open_issues_count,
-    size: repos.size,
-    watchersCount: repos.watchers_count,
-    starsCount: repos.stargazers_count,
-    forksCount: repos.forks_count,
-    subscribersCount: repos.subscribers_count,
-    commitActivity: commitActivity.map(activity => activity.total),
-  };
-}
-
-function extractData(collectedData) {
-  const npmExtract = extractFromNpm(collectedData.npm);
-  const gitExtract = extractFromGit(collectedData.git);
-  const conflicts = {
-    license: npmExtract.license || gitExtract || null,
-  };
-
-  return Object.assign({}, npmExtract, gitExtract, conflicts);
-}
-
-/**
- * REPORTERS
+ * REPORETERS
  */
 
 function reportActivity(data) {
@@ -224,7 +67,7 @@ function reportActivity(data) {
 function reportInterest(data) {
   const issues = [];
 
-  if (typeof data.forksCount === 'number' || typeof data.watchersCount === 'number' ) {
+  if (typeof data.forksCount === 'number' || typeof data.watchersCount === 'number') {
     return issues;
   }
 
@@ -400,40 +243,6 @@ function createReport(data) {
   };
 }
 
-/**
- * MAIN
- */
-
-module.exports = function(ctx, cb) {
-  const typeRaw = ctx.data.type;
-  const rawName = decodeURIComponent(ctx.data.name);
-
-  const repository = REPOSITORY_URLS[typeRaw];
-  if (!repository || repository.type !== 'npm') {
-    return cb(new Error('Unsupported package source'));
-  }
-
-  collectNpmData(repository.url, rawName)
-    .then(npmData => {
-      const codeRepository = npmData.repository;
-      if (codeRepository && codeRepository.type === 'git') {
-        const gitName = codeRepository.url.match(GIT_URL_REGEXP)[1];
-        return collectGitData(REPOSITORY_URLS['git'].url, gitName).then(gitData => ({
-          npm: npmData,
-          git: gitData,
-        }));
-      }
-
-      return {
-        npm: npmData,
-      };
-    })
-    .then(extractData)
-    .then(createReport)
-    .then(report => {
-      cb(null, report);
-    })
-    .catch(err => {
-      cb(err);
-    });
+module.exports = {
+  createReport,
 };

@@ -34,16 +34,19 @@ There are two webtasks available in the repository:
 2. [package-health-reporter-client](./webtasks/package-health-reporter-client)
 
 ### package-health-reporter-api
-Deploy it (from root directory) with command:
-> wt create webtasks/package-health-reporter-api --name package-health-reporter-api
+First make sure to install webtask dependencies (from webtask/package-health-reporter-api directory):
+> npm install
+
+Deploy it (from webtasks/package-health-reporter-api directory) with command:
+> wt create src/index.js --name package-health-reporter-api --bundle --watch
 
 You can specify any custom name after "--name" if you desire.
 
 ### package-health-reporter-client
 **To be able to use it, you must first deploy "package-health-reporter-api" and have it's URL**
 
-Deploy it (from root directory) with command:
->wt create package-health-reporter-client --name package-health-reporter-client --secret apiUrl=[Your package-health-reporter-api URL]
+Deploy it (from webtasks/package-health-reporter-client directory) with command:
+>wt create index.js --name package-health-reporter-client --secret apiUrl=[Your package-health-reporter-api URL]
 
 Replace *[Your package-health-reporter-api URL]* with the actual URL of previously deployed "package-health-reporter-api" webtask.
 
