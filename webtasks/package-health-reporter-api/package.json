@@ -9,6 +9,6 @@
   "private": false,
   "dependencies": {
     "axios": "0.17.1",
-    "moment": "2.11.2"
+    "moment": "2.21.0"
   }
 }
